@@ -1,10 +1,10 @@
 on:
   push:
     branches:
-      - '*.*.*/stable'
+      - '*.*/stable'
   workflow_dispatch:
     branches:
-      - '*.*.*/stable'
+      - '*.*/stable'
 
 jobs:
   publish:

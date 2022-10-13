@@ -13,10 +13,11 @@ jobs:
       - id: versions-diff
         run: |
           pip install -r requirements.txt
-          ./check_updates.py | jq -R -s -c 'split("\n")[:-1]'
           echo "::set-output name=matrix::$(./check_updates.py | jq -R -s -c 'split("\n")[:-1]')"
+          echo "SHORT_VERSIONS=$(python3 -c "from check_updates import print_short_versions; print_short_versions()"| jq -R -s -c 'split("\n")[:-1]')" >> $GITHUB_OUTPUT
     outputs:
       matrix: ${{ steps.versions-diff.outputs.matrix }}
+      short_versions: ${{ steps.versions-diff.outputs.SHORT_VERSIONS }}
 
   create-branch:
     runs-on: ubuntu-latest
@@ -26,16 +27,24 @@ jobs:
       matrix:
         versions: ${{ fromJson(needs.get-versions-diff.outputs.matrix) }}
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: get short version
+        id: get-short-version
+        run: |
+          pip install -r requirements.txt
+          echo "SHORT_VERSION=$(python3 -c 'from check_updates import get_short_version; print(get_short_version("${{ matrix.versions }}"))')" >> $GITHUB_OUTPUT
       - uses: peterjgrainger/action-create-branch@v2.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          branch: ${{ matrix.versions }}/stable
+          branch: ${{ steps.get-short-version.outputs.SHORT_VERSION }}/stable
           sha: '${{ github.event.pull_request.head.sha }}'
       - name: clone
         uses: actions/checkout@v3
         with:
-          ref: ${{ matrix.versions }}/stable
+          ref: ${{ steps.get-short-version.outputs.SHORT_VERSION }}/stable
       - name: inject-version
         run: |
           sed -i "s:3.6.3:${{ matrix.versions }}:g" snap/snapcraft.yaml
@@ -45,9 +54,9 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email noreply@github.com
           git add snap/snapcraft.yaml
-          git commit -m "Prepare release of version ${{ matrix.versions }}/stable"
+          git commit -m "Prepare release of version ${{ steps.get-short-version.outputs.SHORT_VERSION }}/stable"
       - name: push
-        run: git push origin ${{ matrix.versions }}/stable
+        run: git push origin ${{ steps.get-short-version.outputs.SHORT_VERSION }}/stable
 
   publish:
     name: Publish Snap
@@ -57,27 +66,27 @@ jobs:
     uses: ./.github/workflows/publish.yaml
     strategy:
       matrix:
-        versions: ${{ fromJson(needs.get-versions-diff.outputs.matrix) }}
+        versions: ${{ fromJson(needs.get-versions-diff.outputs.short_versions) }}
     secrets: inherit
     with:
       channel: ${{ matrix.versions }}/stable
 
-  open-issue:
-    runs-on: ubuntu-latest
-    if: failure()
-    needs:
-      - create-branch
-      - get-versions-diff
-      - publish
-    permissions:
-      contents: read
-      issues: write
-    strategy:
-      matrix:
-        versions: ${{ fromJson(needs.get-versions-diff.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v2
-      - uses: JasonEtco/create-an-issue@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_TITLE: ${{ matrix.versions }}
+  # open-issue:
+  #   runs-on: ubuntu-latest
+  #   if: failure()
+  #   needs:
+  #     - create-branch
+  #     - get-versions-diff
+  #     - publish
+  #   permissions:
+  #     contents: read
+  #     issues: write
+  #   strategy:
+  #     matrix:
+  #       versions: ${{ fromJson(needs.get-versions-diff.outputs.short_versions) }}
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - uses: JasonEtco/create-an-issue@v2
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         ISSUE_TITLE: ${{ matrix.versions }}
