@@ -18,7 +18,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.channel }}
+      - name: echo channel
+        run: |
+          echo "${{ inputs.channel }}"
+      - name: env
+        run: env
       - uses: snapcore/action-build@v1
         id: build
       - uses: snapcore/action-publish@v1
@@ -26,4 +33,4 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.STORE_LOGIN }}
         with:
           snap: ${{ steps.build.outputs.snap }}
-          release: ${{ github.events.inputs.channel }}
+          release: ${{ inputs.channel }}
