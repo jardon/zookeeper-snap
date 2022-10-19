@@ -21,11 +21,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{ inputs.channel }}
-      - name: echo channel
-        run: |
-          echo "${{ inputs.channel }}"
-      - name: env
-        run: env
       - uses: snapcore/action-build@v1
         id: build
       - uses: snapcore/action-publish@v1
