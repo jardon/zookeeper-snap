@@ -12,4 +12,4 @@ jobs:
     uses: ./.github/workflows/publish.yaml
     secrets: inherit
     with:
-      channel: $GITHUB_REF_NAME
+      channel: ${{ github.ref_name }}
